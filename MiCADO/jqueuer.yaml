@@ -92,12 +92,12 @@ topology_template:
     worker-node:
       type: tosca.nodes.MiCADO.EC2.Compute
       properties:
-        region_name: eu-west-2
-        image_id: ami-006a0174c6c25ac06
-        instance_type: t2.small
+        region_name: [ REGION NAME ]
+        image_id: [ IMAGE ID ]
+        instance_type: [ INSTANCE TYPE]
         security_group_ids:
-          - sg-41cc2120
-        key_name: auKey
+          - [ SEC GROUP HERE ]
+        key_name: [ KEY HERE ]
       interfaces:
         Occopus:
           create:
@@ -108,12 +108,12 @@ topology_template:
     jq-server:
       type: tosca.nodes.MiCADO.EC2.Compute
       properties:
-        region_name: eu-west-2 
-        image_id: ami-006a0174c6c25ac06
-        instance_type: t2.medium
+        region_name: [ REGION NAME ] 
+        image_id: [ IMAGE ID ]
+        instance_type: [ INSTANCE TYPE ]
         security_group_ids:
-          - sg-41cc2120
-        key_name: auKey
+          - [ SEC GROUP HERE ]
+        key_name: [KEY NAME ]
         context:
           append: true
           cloud_config: |
@@ -142,33 +142,23 @@ topology_template:
           sources:
           - 'jqueuer-manager:9081'
           constants:
-            MAXNODES: 10
+            MAXNODES: 30
             EXPERIMENT_ID: exp_123456789_123
           queries:
-            AET: "jqueuer_single_task_duration{experiment_id='{{EXPERIMENT_ID}}'}"
-            EXPDELETED: "jqueuer_is_exp_deleted{experiment_id='{{EXPERIMENT_ID}}'}"
+                  #AET: "jqueuer_single_task_duration{experiment_id='{{EXPERIMENT_ID}}'}"
+            EXPDELETED: "count(jqueuer_is_exp_deleted{experiment_id='{{EXPERIMENT_ID}}'}) or vector(0)"
             REMAININGTIME: "jqueuer_experiment_deadline{experiment_id='{{EXPERIMENT_ID}}'}-time()"
-            JOBSFAIL: "count(jqueuer_job_failed{experiment_id='{{EXPERIMENT_ID}}'})"
+            JOBSFAIL: "count(jqueuer_job_failed{experiment_id='{{EXPERIMENT_ID}}'}) or vector(0)"
             TOTALJOBS: "count(jqueuer_job_added{experiment_id='{{EXPERIMENT_ID}}'})"
-            COMPLETED: "count(jqueuer_job_accomplished{experiment_id='{{EXPERIMENT_ID}}'} == 1)"
-            CALC_AET: "AVG(jqueuer_job_accomplished_duration{experiment_id='{{EXPERIMENT_ID}}'})"
+            COMPLETED: "count(jqueuer_job_accomplished{experiment_id='{{EXPERIMENT_ID}}'} == 1) or vector(0)"
+            #CALC_AET: "AVG(jqueuer_job_accomplished_duration{experiment_id='{{EXPERIMENT_ID}}'})"
+            AET: "AVG(jqueuer_job_accomplished_duration{experiment_id='{{EXPERIMENT_ID}}'}) or jqueuer_single_task_duration{experiment_id='{{EXPERIMENT_ID}}'}"
             IDLENODES: ["jqueuer_idle_nodes{experiment_id='{{EXPERIMENT_ID}}'}",'node_id']
-          min_instances: 0
-          max_instances: 10
+          min_instances: 1
+          max_instances: 30
           scaling_rule: |
             init_m_node_count = m_node_count
-            print("init_m_node_count:  " + str(init_m_node_count))
-            if not EXPDELETED:
-              EXPDELETED = 0
-            if not JOBSFAIL:
-              JOBSFAIL = 0
-            if not COMPLETED:
-              COMPLETED = 0
-            if COMPLETED > 0 or JOBSFAIL > 0:
-              AET = CALC_AET
-              ITEMS = TOTALJOBS - (COMPLETED + JOBSFAIL)   
-            else:
-              ITEMS = TOTALJOBS
+            ITEMS = TOTALJOBS - (COMPLETED + JOBSFAIL)
             if ITEMS>0 and EXPDELETED == 0:
               reqnodes = ceil(AET/((REMAININGTIME-AET*0.20)/ITEMS))
               if reqnodes<=0 or reqnodes>ITEMS:
@@ -179,33 +169,33 @@ topology_template:
                 m_node_count-=1
             else:
               m_node_count = 0
-            # Inform jqueuer-manager and push specific nodes in case of scale-down 
-            if m_node_count > 0: 
+            # Inform jqueuer-manager and push specific nodes in case of scale-down
+            if m_node_count > 0:
               if m_userdata is None:
                 m_userdata=[]
               if m_node_count != len(m_nodes):
                 param_data = '{"event_type": "nodes_required", "num_nodes":' + str(m_node_count) + '}'
-                requests.post(url = "http://jqueuer-manager.default.svc.cluster.local:8081/experiment/inform", data = param_data) 
+                requests.post(url = "http://jqueuer-manager.default.svc.cluster.local:8081/experiment/inform", data = param_data)
               m_nodes_todrop=[]
               if IDLENODES is not None:
-                print("IdleNodes:" + str(IDLENODES))
+                print ("IdleNodes:" + str(IDLENODES))
                 # Select VMs not yet dropped before
                 if not isinstance(IDLENODES,list):
-                  IDLENODES = [IDLENODES]  
+                  IDLENODES = [IDLENODES]
                 for anode in IDLENODES:
                   if str(anode) == "99":
                     continue
                   node_found = False
                   for node in m_nodes:
                     if node['Addr'] == add:
-                      node_found = True 
+                      node_found = True
                       break
                   if anode not in m_userdata or node_found == True:
                     m_userdata.append(anode)
                     m_nodes_todrop.append(anode)
-                print("NODES TO DROP:   "+ str(m_nodes_todrop))
-                print("m_node_count:   " + str(m_node_count))
-                print("len(m_nodes):  " + str(len(m_nodes)))
+                print ("NODES TO DROP:   "+ str(m_nodes_todrop))
+                print ("m_node_count:   " + str(m_node_count))
+                print ("len(m_nodes):  " + str(len(m_nodes)))
               if m_node_count <= init_m_node_count and len(m_nodes_todrop) == 0:
                 m_node_count = init_m_node_count
-                print("if m_node_count:   " + str(m_node_count))
+                print ("if m_node_count:   " + str(m_node_count))
