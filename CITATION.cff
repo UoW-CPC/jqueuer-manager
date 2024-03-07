@@ -1,0 +1,14 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Ullah"
+  given-names: "Amjad"
+  orcid: "https://orcid.org/0000-0002-2407-4480"
+- family-names: "DesLauriers"
+  given-names: "James"
+  orcid: "https://orcid.org/0000-0003-0336-3213"
+title: "jQueuer"
+version: 1.0.0
+doi: 10.5281/zenodo.4043232
+date-released: 2020-09-22
+url: "https://github.com/UoW-CPC/jqueuer-manager"
